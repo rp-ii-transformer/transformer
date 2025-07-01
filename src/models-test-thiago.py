@@ -8,9 +8,10 @@ import time
 import csv
 import os
 
-from transformer import transformer_start
+from transformer.transformer import transformer_start
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu"
+# device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Usando GPU? {torch.cuda.is_available()}")
 print(f"Dispositivo: {device}")
 
@@ -27,7 +28,7 @@ model_names = [
     "VanessaSchenkel/unicamp-finetuned-en-to-pt-dataset-ted"
 ]
 
-output_file = "resultados_traducao.csv"
+output_file = "../resultados_traducao.csv"
 
 if not os.path.exists(output_file):
     with open(output_file, mode="w", newline="", encoding="utf-8") as f:
