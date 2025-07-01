@@ -1,12 +1,14 @@
 import torch
 import psutil
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import AutoTokenizer
 from datasets import load_dataset
 import evaluate
 from tqdm import tqdm
 import time
 import csv
 import os
+
+from transformer import transformer_start
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Usando GPU? {torch.cuda.is_available()}")
@@ -84,8 +86,7 @@ for model_name in model_names:
     memory_before = process.memory_info().rss
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
-    print(f"Modelo real carregado: {type(model)}")
+    model = transformer_start(model_name, device)
 
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
