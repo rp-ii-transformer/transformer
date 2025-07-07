@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import math
+from scaled_dot_product import scaled_dot_product_attention
 
 
 class MultiHeadAttention(nn.Module):
@@ -72,28 +72,7 @@ class MultiHeadAttention(nn.Module):
 
         # 3. Cálculo do Scaled Dot-Product Attention
 
-        # Multiplicação de matrizes entre Q e K transposto
-        # (batch_size, num_heads, seq_length, head_dim) @ (batch_size, num_heads, head_dim, seq_length)
-        # -> (batch_size, num_heads, seq_length, seq_length)
-        scores = torch.matmul(q, k.transpose(-2, -1))
-
-        # Escalonamento pela raiz quadrada da dimensão da cabeça para estabilidade numérica
-        scaled_scores = scores / math.sqrt(self.head_dim)
-
-        # (Opcional) Aplicar máscara para que o modelo não preste atenção em tokens de "padding"
-        if mask is not None:
-            # A máscara é preenchida com um valor muito pequeno (-infinito) onde for 0
-            # para que, após o softmax, essas posições se tornem 0.
-            scaled_scores = scaled_scores.masked_fill(mask == 0, -1e9)
-
-        # Aplicar softmax na última dimensão para obter os pesos de atenção (probabilidades)
-        # Shape: (batch_size, num_heads, seq_length, seq_length)
-        attention_weights = torch.softmax(scaled_scores, dim=-1)
-
-        # Multiplicar os pesos de atenção pelo vetor V para obter a saída contextual
-        # (batch_size, num_heads, seq_length, seq_length) @ (batch_size, num_heads, seq_length, head_dim)
-        # -> (batch_size, num_heads, seq_length, head_dim)
-        context_vector = torch.matmul(attention_weights, v)
+        context_vector = scaled_dot_product_attention(q, k, v, mask)
 
         # 4. Concatenar as cabeças e passar pela camada de saída
 
