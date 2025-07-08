@@ -1,12 +1,6 @@
 import numpy as np
+import src.transformer.pipeline.softmax as log_softmax
 
-def _log_softmax(x):
-    """
-    log-softmax estável em NumPy
-    """
-    x_shift = x - np.max(x, axis=-1, keepdims=True)
-    log_sum = np.log(np.sum(np.exp(x_shift), axis=-1, keepdims=True))
-    return x_shift - log_sum
 
 def _smooth_targets(targets, vocab_size, epsilon, pad_idx):
     """
@@ -40,7 +34,7 @@ def label_smoothing_loss(logits, targets, pad_idx, epsilon=0.1):
     batch, seq_len, V = logits.shape
 
     # 1) log-softmax estável
-    log_probs = _log_softmax(logits)  # shape (batch, seq_len, V)
+    log_probs = log_softmax(logits)  # shape (batch, seq_len, V)
 
     # 2) construo distribuição alvo suavizada
     true_dist = _smooth_targets(targets, V, epsilon, pad_idx)
