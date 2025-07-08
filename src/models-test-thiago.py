@@ -22,10 +22,7 @@ bleu_metric = evaluate.load("bleu")
 chrf_metric = evaluate.load("chrf")
 
 model_names = [
-    "Helsinki-NLP/opus-mt-tc-big-en-pt",
-    "Narrativa/mbart-large-50-finetuned-opus-en-pt-translation",
-    "unicamp-dl/translation-en-pt-t5",
-    "VanessaSchenkel/unicamp-finetuned-en-to-pt-dataset-ted"
+    "Helsinki-NLP/opus-mt-tc-big-en-pt",  # Ainda usado apenas para o tokenizer
 ]
 
 output_file = "../resultados_traducao.csv"
@@ -59,13 +56,11 @@ def compute_metrics(dataset, model, tokenizer, num_samples=1000, batch_size=4):
         inputs = tokenizer(inputs_text, return_tensors="pt", padding=True, truncation=True, max_length=256).to(device)
 
         with torch.no_grad():
-            if device == "cuda":
-                with torch.amp.autocast(device_type='cuda'):
-                    translated = model.generate(**inputs)
-            else:
-                translated = model.generate(**inputs)
+            token_ids = inputs["input_ids"]
+            logits = model(token_ids)
+            predicted_ids = torch.argmax(logits, dim=-1)
 
-        decoded_translations = [tokenizer.decode(t, skip_special_tokens=True) for t in translated]
+        decoded_translations = [tokenizer.decode(t, skip_special_tokens=True) for t in predicted_ids]
 
         references.extend([[ref] for ref in targets_text])
         hypotheses.extend(decoded_translations)
@@ -87,7 +82,7 @@ for model_name in model_names:
     memory_before = process.memory_info().rss
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = transformer_start(model_name, device) #GRUPO TRANSFORMER
+    model = transformer_start(model_name, device)  # Chamando implementação manual
 
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)

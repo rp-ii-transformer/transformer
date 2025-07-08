@@ -36,3 +36,4 @@ if __name__ == "__main__":
 
     # Esperado: (2, 5, 512)
     print("Shape dos vetores embutidos:", output.shape)
+    print("Output dos vetores embutidos:", output)
