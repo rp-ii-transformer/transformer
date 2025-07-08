@@ -1,5 +1,6 @@
 from softmax import softmax
-import numpy as np
+import torch
+import math
 
 def scaled_dot_product_attention(query, key, value, mask=None):
     """
@@ -20,10 +21,10 @@ def scaled_dot_product_attention(query, key, value, mask=None):
     d_k = query.shape[-1]
 
     # matrix multiplication. key is transposed for correct dot-product
-    scores = np.matmul(query, key.transpose(-2, -1))
+    scores = torch.matmul(query, key.transpose(-2, -1))
 
     # scale the dot_product
-    scaled_scores = scores / np.sqrt(d_k)
+    scaled_scores = scores / math.sqrt(d_k)
 
     # apply mask if it exists
     if mask is not None:
@@ -31,6 +32,6 @@ def scaled_dot_product_attention(query, key, value, mask=None):
 
     attention_weights = softmax(scaled_scores)
 
-    output = np.matmul(attention_weights, value)
+    output = torch.matmul(attention_weights, value)
 
     return output
