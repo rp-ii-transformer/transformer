@@ -1,6 +1,8 @@
 import torch
 import math
 
+# TODO analisar o valores da matriz
+
 def token_embedding_start(vocab_size, d_model, token_ids):
     embedding_weights = create_token_embedding(vocab_size, d_model)
     return embed_tokens(token_ids, embedding_weights, d_model)
@@ -22,18 +24,18 @@ def embed_tokens(token_ids, embedding_weights, d_model):
 
     return embedded * math.sqrt(d_model)
 
-if __name__ == "__main__":
-    vocab_size = 10000
-    d_model = 512
-    batch_size = 2
-    seq_len = 5
-
-    token_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
-    print("Token IDs:")
-    print(token_ids)
-
-    output = token_embedding_start(vocab_size, d_model, token_ids)
-
-    # Esperado: (2, 5, 512)
-    print("Shape dos vetores embutidos:", output.shape)
-    print("Output dos vetores embutidos:", output)
+# if __name__ == "__main__":
+#     vocab_size = 10000
+#     d_model = 512
+#     batch_size = 2
+#     seq_len = 5
+#
+#     token_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
+#     print("Token IDs:")
+#     print(token_ids)
+#
+#     output = token_embedding_start(vocab_size, d_model, token_ids)
+#
+#     # Esperado: (2, 5, 512)
+#     print("Shape dos vetores embutidos:", output.shape)
+#     print("Output dos vetores embutidos:", output)

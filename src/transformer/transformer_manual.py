@@ -7,7 +7,8 @@ def forward_pass_transformer_manual(token_ids, vocab_size, d_model):
     print("\n🔹 Iniciando Token Embedding...")
     embedded_tokens = token_embedding_start(vocab_size, d_model, token_ids)
 
-    print("🔹 Saída do Token Embedding:", embedded_tokens.shape)
+    print("🔹 Saída do Token Embedding - shape:", embedded_tokens.shape)
+    print("🔹 Saída do Token Embedding - output:", embedded_tokens)
 
     # TODO Positional Encoding MOCK
     encoded_with_position = embedded_tokens
