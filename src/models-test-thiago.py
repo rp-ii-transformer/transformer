@@ -82,7 +82,7 @@ for model_name in model_names:
     memory_before = process.memory_info().rss
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = transformer_start(model_name, device)  # Chamando implementação manual
+    model = transformer_start(model_name, device, tokenizer)  # Chamando implementação manual
 
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)

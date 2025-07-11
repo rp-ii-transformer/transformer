@@ -11,10 +11,8 @@ def forward_pass_transformer_manual(token_ids, vocab_size, d_model):
 
     # TODO Positional Encoding MOCK
     encoded_with_position = embedded_tokens
-
     # TODO Encoder/Decoder MOCK
     decoded_output = encoded_with_position
-
     # TODO Linear + Softmax para simular logits MOCK
     batch_size, seq_len, _ = decoded_output.shape
     mock_logits = torch.rand((batch_size, seq_len, vocab_size), device=decoded_output.device)
