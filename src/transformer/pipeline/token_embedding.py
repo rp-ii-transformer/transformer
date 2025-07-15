@@ -1,41 +1,24 @@
 import torch
+import torch.nn as nn
 import math
 
-# TODO analisar o valores da matriz
+class TokenEmbedding(nn.Module):
+    def __init__(self, vocab_size, d_model, device='cpu'):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.d_model = d_model
 
-def token_embedding_start(vocab_size, d_model, token_ids):
-    embedding_weights = create_token_embedding(vocab_size, d_model)
-    return embed_tokens(token_ids, embedding_weights, d_model)
+        # matriz de embeddings (distribuição Xavier Uniform)
 
-def create_token_embedding(vocab_size, d_model, device='cpu'):
-    limit = math.sqrt(6 / (vocab_size + d_model))
-    embedding_weights = (torch.rand(vocab_size, d_model, device=device) * 2 - 1) * limit
-    embedding_weights.requires_grad = True
-    return embedding_weights
+        #  definir o intervalo de inicialização dos pesos da matriz de embeddings
+        limit = math.sqrt(6 / (vocab_size + d_model))
+        # gera uma matriz aleatória (entre 0 e 1) e multiplica pelos pesos
+        weights = (torch.rand(vocab_size, d_model, device=device) * 2 - 1) * limit
+        # transforma os pesos em um parametro treinável
+        self.embedding_weights = nn.Parameter(weights)
 
-def embed_tokens(token_ids, embedding_weights, d_model):
-    batch_size, seq_len = token_ids.shape
-    embedded = torch.zeros((batch_size, seq_len, d_model), device=embedding_weights.device)
-
-    for i in range(batch_size):
-        for j in range(seq_len):
-            token_id = token_ids[i, j].item()
-            embedded[i, j] = embedding_weights[token_id]
-
-    return embedded * math.sqrt(d_model)
-
-# if __name__ == "__main__":
-#     vocab_size = 10000
-#     d_model = 512
-#     batch_size = 2
-#     seq_len = 5
-#
-#     token_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
-#     print("Token IDs:")
-#     print(token_ids)
-#
-#     output = token_embedding_start(vocab_size, d_model, token_ids)
-#
-#     # Esperado: (2, 5, 512)
-#     print("Shape dos vetores embutidos:", output.shape)
-#     print("Output dos vetores embutidos:", output)
+    def forward(self, token_ids):
+        # relaciona cada token com o vetor de pesos d_model
+        embedded = self.embedding_weights[token_ids]
+        # aplica escala
+        return embedded * math.sqrt(self.d_model)
