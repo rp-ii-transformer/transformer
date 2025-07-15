@@ -1,5 +1,6 @@
 import torch.nn as nn
-from src.transformer.pipeline.token_embedding import TokenEmbedding
+from transformer.pipeline.token_embedding import TokenEmbedding
+from transformer.pipeline.common import xp
 
 class CustomTransformer(nn.Module):
     def __init__(self, vocab_size, d_model=512, device='cpu'):

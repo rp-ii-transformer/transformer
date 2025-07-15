@@ -1,6 +1,6 @@
-from softmax import softmax
-import torch
+from .common import xp
 import math
+from .softmax import softmax
 
 def scaled_dot_product_attention(query, key, value, mask=None):
     """
@@ -17,21 +17,22 @@ def scaled_dot_product_attention(query, key, value, mask=None):
     Returns:
         numpy.ndarray: Attention output, shape (batch_size, seq_length_query, d_v).
     """
-    # dimension of key (from last key)
+    # last dimension size
     d_k = query.shape[-1]
 
-    # matrix multiplication. key is transposed for correct dot-product
-    scores = torch.matmul(query, key.transpose(-2, -1))
+    # (..., seq_len_q, seq_len_k)
+    scores = xp.matmul(query, key.swapaxes(-1, -2))
 
-    # scale the dot_product
-    scaled_scores = scores / math.sqrt(d_k)
+    # scale
+    scores = scores / math.sqrt(d_k)
 
-    # apply mask if it exists
+    # apply mask (e.g. for padding or causal masking)
     if mask is not None:
-        scaled_scores = scaled_scores + mask
+        scores = scores + mask
 
-    attention_weights = softmax(scaled_scores)
+    # softmax over key sequence length
+    weights = softmax(scores)
 
-    output = torch.matmul(attention_weights, value)
-
+    # weighted sum of values: (..., seq_len_q, d_v)
+    output = xp.matmul(weights, value)
     return output

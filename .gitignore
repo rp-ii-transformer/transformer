@@ -1,0 +1,8 @@
+venv
+venv/
+./venv/
+__pycache__
+checkpoins/
+checkpoints_debug/
+checkpoints
+checkpoins_debug

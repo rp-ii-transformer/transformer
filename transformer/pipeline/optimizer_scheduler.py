@@ -1,10 +1,10 @@
-import numpy as np
+from transformer.pipeline.common import xp
 
 class Adam:
     def __init__(self, params, lr=0, betas=(0.9,0.98), eps=1e-9):
         self.params = params  # lista de arrays NumPy
-        self.m = [np.zeros_like(p) for p in params]
-        self.v = [np.zeros_like(p) for p in params]
+        self.m = [xp.zeros_like(p) for p in params]
+        self.v = [xp.zeros_like(p) for p in params]
         self.beta1, self.beta2 = betas
         self.eps = eps
         self.step_num = 0
@@ -20,7 +20,7 @@ class Adam:
             self.v[i] = self.beta2*self.v[i] + (1-self.beta2)*(g**2)
             m_hat = self.m[i] / (1-self.beta1**self.step_num)
             v_hat = self.v[i] / (1-self.beta2**self.step_num)
-            p -= lr_t * m_hat / (np.sqrt(v_hat) + self.eps)
+            p -= lr_t * m_hat / (xp.sqrt(v_hat) + self.eps)
             updated.append(p)
         return updated
 

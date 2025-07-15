@@ -1,0 +1,7 @@
+cupy-cuda12x  
+numpy
+tqdm
+evaluate
+datasets
+psutil
+transformers

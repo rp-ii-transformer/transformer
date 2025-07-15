@@ -20,7 +20,7 @@ This project evaluates the **Helsinki-NLP/opus-mt-tc-big-en-pt** translation mod
 Make sure you have Python and the required dependencies installed:
 
 ```bash
-pip install torch transformers datasets evaluate tqdm
+pip install torch transformers datasets evaluate tqdm psutil sacrebleu setencepiece
 ```
 
 ## **▶️ Usage**
