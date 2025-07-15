@@ -3,7 +3,7 @@ import math
 from .softmax import softmax
 from .scaled_dot_product_attention import scaled_dot_product_attention
 from .multi_head_attention import MultiHeadAttention
-from .positionwise_ffn import PositionWiseFeedForwardNetwork
+from .position_wise_ffn import PositionWiseFeedForwardNetwork
 from .residual_layer_norm import ResidualLayerNorm
 
 class DecoderLayer:
