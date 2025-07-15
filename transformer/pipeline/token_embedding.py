@@ -3,6 +3,7 @@ import math
 
 
 # TODO analisar o valores da matriz
+# IMPLEMENTAÇÃO TORCH
 
 def token_embedding_start(vocab_size, d_model, token_ids):
     embedding_weights = create_token_embedding(vocab_size, d_model)
@@ -41,6 +42,7 @@ def embed_tokens(token_ids, embedding_weights, d_model):
 #     print("Shape dos vetores embutidos:", output.shape)
 #     print("Output dos vetores embutidos:", output)
 
+# IMPLEMENTAÇÃO NUMPY/CUPY
 
 from .common import xp
 import math
