@@ -1,15 +1,14 @@
-from src.transformer.pipeline.common import xp
-from src.transformer.pipeline.training.loss import label_smoothing_loss
+from transformer.pipeline.common import xp
+from transformer.pipeline.training.loss import label_smoothing_loss
 
 def main():
-    # Parâmetros do teste
     vocab_size = 5
     batch      = 2
     seq_len    = 3
     epsilon    = 0.1
-    pad_idx    = -1  # não há padding neste teste
+    pad_idx    = -1  # não há padding 
 
-    # logits uniformes ⇒ devem gerar ln(vocab_size)
+    # logits uniformes  devem gerar ln(vocab_size)
     logits = xp.zeros((batch, seq_len, vocab_size), dtype=xp.float32)
 
     # targets qualquer, aqui 0,1,2 repetidos

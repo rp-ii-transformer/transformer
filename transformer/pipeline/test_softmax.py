@@ -1,10 +1,10 @@
-import numpy as np
+from transformer.pipeline.common import xp
 from softmax import softmax, cross_entropy_loss
 
 def main():
     logits = [1, 2, 3]              # Saída do modelo (antes do softmax)
     probs = softmax(logits)         # Converte para probabilidades
-    predicted_idx = np.argmax(probs)
+    predicted_idx = xp.argmax(probs)
 
     target_idx = 2  # valor correto índice 2 = (o valor 3)
 
@@ -13,8 +13,8 @@ def main():
     print()
     print("Logits (pontuações):", ", ".join(str(x) for x in logits))
     print("Softmax (probabilidades): [", ", ".join(f"{p}" for p in probs), "]")
-    print("Soma das probabilidades:", np.sum(probs))
-    print(f"A maior probabilidade foi: {np.max(probs)}")
+    print("Soma das probabilidades:", xp.sum(probs))
+    print(f"A maior probabilidade foi: {xp.max(probs)}")
     print(f"Logit com maior probabilidade: {logits[predicted_idx]}")
     # print(f"Target correto (esperado): {logits[target_idx]}")
     print(f"Loss (erro): {loss:.4f}")

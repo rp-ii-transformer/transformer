@@ -1,6 +1,7 @@
 import torch
 import math
 
+
 # TODO analisar o valores da matriz
 
 def token_embedding_start(vocab_size, d_model, token_ids):
@@ -39,3 +40,26 @@ def embed_tokens(token_ids, embedding_weights, d_model):
 #     # Esperado: (2, 5, 512)
 #     print("Shape dos vetores embutidos:", output.shape)
 #     print("Output dos vetores embutidos:", output)
+
+
+from .common import xp
+import math
+
+def create_embedding(vocab_size: int, d_model: int):
+    limit = math.sqrt(6 / (vocab_size + d_model))
+    # W: (vocab_size, d_model)
+    return (xp.random.rand(vocab_size, d_model, dtype=xp.float32) * 2 - 1) * limit
+
+def embed_tokens(token_ids: xp.ndarray, W: xp.ndarray):
+    """
+    token_ids: (batch, seq_len) — índices [0..vocab_size-1]
+    W: (vocab_size, d_model)
+    retorna: (batch, seq_len, d_model)
+    """
+    B, T = token_ids.shape
+    D = W.shape[1]
+    out = xp.zeros((B, T, D), dtype=xp.float32)
+    for i in range(B):
+        for j in range(T):
+            out[i, j] = W[token_ids[i, j]]
+    return out * math.sqrt(D)

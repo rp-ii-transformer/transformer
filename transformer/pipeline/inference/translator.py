@@ -10,7 +10,7 @@ class Translator:
     def translate(self, sentence, method="greedy", **kw):
         # 1) tokeniza + indices
         tokens = sentence.split()
-        src_idxs = np.array([self.stoi.get(t, self.stoi["<unk>"]) for t in tokens])[None, :]
+        src_idxs = xp.array([self.stoi.get(t, self.stoi["<unk>"]) for t in tokens])[None, :]
         src_mask = (src_idxs != self.pad)[..., None]  # ou máscara customizada
 
         # 2) escolhe método
