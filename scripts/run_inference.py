@@ -24,7 +24,7 @@ else:
     N_HEADS    = 8
     D_FF       = 2048
     MAX_LEN    = 64
-    CHECKPOINT = "checkpoints/epoch10.npz"
+    CHECKPOINT = "checkpoints/epoch2.npz"
 # ───────────────────────────────────────────────────────────────────
 
 # 1) Carrega tokenizer

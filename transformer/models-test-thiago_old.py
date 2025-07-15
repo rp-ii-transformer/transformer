@@ -8,7 +8,7 @@ import time
 import csv
 import os
 
-from main import transformer_start
+from transformer.main import transformer_start
 
 device = "cpu"
 # device = "cuda" if torch.cuda.is_available() else "cpu"
