@@ -33,14 +33,14 @@ def label_smoothing_loss(logits, targets, pad_idx, epsilon=0.1):
     """
     batch, seq_len, V = logits.shape
 
-    # 1) log-softmax estável
-    log_probs = log_softmax(logits)  # shape (batch, seq_len, V)
+    # 1) log-softmax
+    log_probs = log_softmax(logits)  # shape (batch, seq_len, V) BTV
 
     # 2) construo distribuição alvo suavizada
     true_dist = _smooth_targets(targets, V, epsilon, pad_idx)
 
     # 3) perda pontual: −∑ p_true · log p_pred
-    #    e máscara para descartar pads
+    #    e máscara para descartar pads ("futuro")
     loss_all = -np.sum(true_dist * log_probs, axis=-1)           # (batch, seq_len)
     mask = (targets != pad_idx).astype(np.float32)               # (batch, seq_len)
 

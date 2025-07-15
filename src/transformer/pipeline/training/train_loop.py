@@ -20,7 +20,7 @@ def train_epoch(model, data_loader, pad_idx, d_model, warmup, params):
         # forward
         logits = model(src, tgt_input)           # (batch, seq_len-1, vocab_size)
         # loss
-        loss = cross_entropy_loss(logits, tgt_output, pad_idx)
+        loss = label_smoothing_loss(logits, tgt_output, pad_idx)
         total_loss += loss
         # backward (você precisa implementar gradiente manual ou aproximado)
         grads = model.backward()                  # stub: retorna grads para cada param
