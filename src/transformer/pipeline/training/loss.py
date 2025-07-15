@@ -1,5 +1,5 @@
-import numpy as np
-import src.transformer.pipeline.softmax as log_softmax
+from src.transformer.pipeline.common import xp
+from ..softmax import log_softmax
 
 
 def _smooth_targets(targets, vocab_size, epsilon, pad_idx):
@@ -10,9 +10,9 @@ def _smooth_targets(targets, vocab_size, epsilon, pad_idx):
     """
     batch, seq_len = targets.shape
     # preenche com ε/(V-1)
-    smooth = np.full((batch, seq_len, vocab_size),
+    smooth = xp.full((batch, seq_len, vocab_size),
                      fill_value=epsilon/(vocab_size-1),
-                     dtype=np.float32)
+                     dtype=xp.float32)
     # atribui (1-ε) na posição certa
     for b in range(batch):
         for t in range(seq_len):
@@ -25,8 +25,8 @@ def _smooth_targets(targets, vocab_size, epsilon, pad_idx):
 
 def label_smoothing_loss(logits, targets, pad_idx, epsilon=0.1):
     """
-    logits: np.ndarray (batch, seq_len, vocab_size)
-    targets: np.ndarray (batch, seq_len) com índices [0..vocab_size-1]
+    logits: xp.ndarray (batch, seq_len, vocab_size)
+    targets: xp.ndarray (batch, seq_len) com índices [0..vocab_size-1]
     pad_idx: int
     epsilon: float, valor de label smoothing (padrão 0.1)
     Retorna: escalar (float) — perda média por token (ignorando pads).
@@ -41,10 +41,10 @@ def label_smoothing_loss(logits, targets, pad_idx, epsilon=0.1):
 
     # 3) perda pontual: −∑ p_true · log p_pred
     #    e máscara para descartar pads ("futuro")
-    loss_all = -np.sum(true_dist * log_probs, axis=-1)           # (batch, seq_len)
-    mask = (targets != pad_idx).astype(np.float32)               # (batch, seq_len)
+    loss_all = -xp.sum(true_dist * log_probs, axis=-1)           # (batch, seq_len)
+    mask = (targets != pad_idx).astype(xp.float32)               # (batch, seq_len)
 
     # 4) média somente sobre tokens válidos
-    total_loss = np.sum(loss_all * mask)
-    total_tokens = np.sum(mask)
+    total_loss = xp.sum(loss_all * mask)
+    total_tokens = xp.sum(mask)
     return total_loss / total_tokens
