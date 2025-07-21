@@ -20,14 +20,20 @@ This project evaluates the **Helsinki-NLP/opus-mt-tc-big-en-pt** translation mod
 Make sure you have Python and the required dependencies installed:
 
 ```bash
-pip install torch transformers datasets evaluate tqdm psutil sacrebleu setencepiece
+pip install -r requirements.txt
 ```
 
 ## **▶️ Usage**
-Run the script:
+Train the model:
 
 ```bash
-python model.py
+python scripts/train.py
+```
+
+Run inference:
+
+```bash
+python scripts/run_inference.py
 ```
 
 ## **📊 Example Output**

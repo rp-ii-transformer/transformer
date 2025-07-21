@@ -6,3 +6,4 @@ checkpoins/
 checkpoints_debug/
 checkpoints
 checkpoins_debug
+.python-version
