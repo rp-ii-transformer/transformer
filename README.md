@@ -19,6 +19,8 @@ This project evaluates the **Helsinki-NLP/opus-mt-tc-big-en-pt** translation mod
 ## **🛠 Installation**
 Make sure you have Python and the required dependencies installed:
 
+**Python 3.12 is recommended!**
+
 ```bash
 pip install -r requirements.txt
 ```
