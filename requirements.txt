@@ -2,8 +2,10 @@ cupy-cuda12x
 numpy
 tqdm
 evaluate
-datasets
+datasets<=3.6.0
 psutil
 transformers
 sacrebleu
-setencepiece
+sentencepiece
+torch
+sacremoses
