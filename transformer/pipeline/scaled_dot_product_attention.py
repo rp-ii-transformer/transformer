@@ -2,7 +2,7 @@ from .common import xp
 import math
 from .softmax import softmax
 
-def scaled_dot_product_attention(query, key, value, mask=None):
+def scaled_dot_product_attention(q, k, v, mask=None):
     """
     Computes scaled dot-product attention as per 'Attention is All You Need':
     Computes dot products of query with all keys, divide each by sqrt(d_k),
@@ -16,23 +16,60 @@ def scaled_dot_product_attention(query, key, value, mask=None):
 
     Returns:
         numpy.ndarray: Attention output, shape (batch_size, seq_length_query, d_v).
+
+    Note:        
+    Calcula a atenção do tipo "scaled dot-product".
+    q, k, v: (B, nh, T, dk)
+    mask: (B, 1, T, T) ou (B, 1, 1, T) - broadcastable
+    Retorna (context, attn_weights)
     """
     # last dimension size
-    d_k = query.shape[-1]
+    dk = q.shape[-1]
 
     # (..., seq_len_q, seq_len_k)
-    scores = xp.matmul(query, key.swapaxes(-1, -2))
-
-    # scale
-    scores = scores / math.sqrt(d_k)
+    scores = (q @ k.transpose(0, 1, 3, 2)) / math.sqrt(dk)  # (B, nh, T, T)
 
     # apply mask (e.g. for padding or causal masking)
     if mask is not None:
-        scores = scores + mask
+        scores = xp.where(mask, -1e9, scores)
 
-    # softmax over key sequence length
-    weights = softmax(scores)
+    attn_weights = softmax(scores)  # (B, nh, T, T)
+    context = attn_weights @ v      # (B, nh, T, dv)
 
-    # weighted sum of values: (..., seq_len_q, d_v)
-    output = xp.matmul(weights, value)
-    return output
+    # Cache para o backward pass
+    cache = (q, k, v, attn_weights)
+    return context, cache
+
+
+
+def scaled_dot_product_attention_backward(d_context, cache):
+    """
+    Retropropagação para a scaled_dot_product_attention.
+    d_context: (B, nh, T, dv)
+    cache: tupla com (q, k, v, attn_weights)
+    Retorna (dq, dk, dv)
+    """
+    q, k, v, attn_weights = cache
+    dk = q.shape[-1]
+
+    # Gradiente em relação a v
+    # dL/dv = attn_weights^T * dL/d_context
+    dv = attn_weights.transpose(0, 1, 3, 2) @ d_context
+
+    # Gradiente em relação a attn_weights
+    # dL/d_attn_weights = dL/d_context * v^T
+    d_attn_weights = d_context @ v.transpose(0, 1, 3, 2)
+
+    # Gradiente em relação a scores (passando pelo softmax)
+    # dL/d_scores = (dL/d_attn_weights - sum(dL/d_attn_weights * attn, axis=-1)) * attn
+    d_scores = (d_attn_weights - xp.sum(d_attn_weights * attn_weights, axis=-1, keepdims=True)) * attn_weights
+
+    # Gradiente em relação a k
+    # dL/dk = (dL/d_scores^T * q) / sqrt(dk)
+    d_k = (d_scores.transpose(0, 1, 3, 2) @ q) / math.sqrt(dk)
+
+    # Gradiente em relação a q
+    # dL/dq = (dL/d_scores * k) / sqrt(dk)
+    d_q = (d_scores @ k) / math.sqrt(dk)
+
+    return d_q, d_k, dv

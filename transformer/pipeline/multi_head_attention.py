@@ -1,101 +1,111 @@
 from .common import xp
 import math
-from .scaled_dot_product_attention import scaled_dot_product_attention
+from .scaled_dot_product_attention import scaled_dot_product_attention, scaled_dot_product_attention_backward
 
 class MultiHeadAttention:
-    """
-    Implementação da camada de Multi-Head Self-Attention.
-    """
-
     def __init__(self, embed_dim: int, num_heads: int):
-        """
-        Inicializador da classe.
-
-        Args:
-            embed_dim (int): A dimensionalidade dos embeddings de entrada. (d_model)
-            num_heads (int): O número de cabeças de atenção a serem usadas.
-        """
-        # Garante que a dimensão do embedding pode ser dividida igualmente entre as cabeças
         assert embed_dim % num_heads == 0, "A dimensão do embedding deve ser divisível pelo número de cabeças."
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim  = embed_dim // num_heads
+        self.head_dim = embed_dim // num_heads
 
-        # Xavier uniform initialization para W_q, W_k, W_v, W_o
         limit = math.sqrt(6 / (embed_dim + embed_dim))
         self.W_q = xp.random.uniform(-limit, limit, (embed_dim, embed_dim), dtype=xp.float32)
         self.W_k = xp.random.uniform(-limit, limit, (embed_dim, embed_dim), dtype=xp.float32)
         self.W_v = xp.random.uniform(-limit, limit, (embed_dim, embed_dim), dtype=xp.float32)
         self.W_o = xp.random.uniform(-limit, limit, (embed_dim, embed_dim), dtype=xp.float32)
 
-    def _split_heads(self, x: xp.ndarray) -> xp.ndarray:
-        """
-        Divide a última dimensão em (num_heads, head_dim) e transpõe para o cálculo de atenção.
+    def get_parameters(self) -> dict[str, xp.ndarray]:
+        return {'W_q': self.W_q, 'W_k': self.W_k, 'W_v': self.W_v, 'W_o': self.W_o}
 
-        Entrada x: (batch_size, seq_length, embed_dim)
-        Saída:     (batch_size, num_heads, seq_length, head_dim)
-        """
+    def _split_heads(self, x: xp.ndarray) -> xp.ndarray:
         B, T, _ = x.shape
         x = x.reshape(B, T, self.num_heads, self.head_dim)
         return x.transpose(0, 2, 1, 3)
 
     def _combine_heads(self, x: xp.ndarray) -> xp.ndarray:
-        """
-        Reverte _split_heads:
-        Entrada x: (batch_size, num_heads, seq_length, head_dim)
-        Saída:     (batch_size, seq_length, embed_dim)
-        """
         B, nh, T, dh = x.shape
         return x.transpose(0, 2, 1, 3).reshape(B, T, nh * dh)
 
-    def forward(self,
-                query: xp.ndarray,
-                key:   xp.ndarray,
-                value: xp.ndarray,
-                mask:  xp.ndarray | None = None) -> xp.ndarray:
-        """
-        Passo forward da camada.
-        Para self-attention, query, key e value serão o mesmo tensor de entrada.
-
-        Args:
-            query: xp.ndarray, shape (batch_size, seq_length, embed_dim)
-            key:   xp.ndarray, shape (batch_size, seq_length, embed_dim)
-            value: xp.ndarray, shape (batch_size, seq_length, embed_dim)
-            mask:  xp.ndarray or None, shape broadcastable to (batch_size, num_heads, seq_length, seq_length)
-
-        Returns:
-            xp.ndarray de saída, shape (batch_size, seq_length, embed_dim)
-        """
-        # 1. Projeção linear
-        q = query @ self.W_q   # (B, T, D)
-        k = key   @ self.W_k
+    def forward(self, query: xp.ndarray, key: xp.ndarray, value: xp.ndarray, mask: xp.ndarray | None = None):
+        q = query @ self.W_q
+        k = key @ self.W_k
         v = value @ self.W_v
+        q_h, k_h, v_h = self._split_heads(q), self._split_heads(k), self._split_heads(v)
+        context, attn_cache = scaled_dot_product_attention(q_h, k_h, v_h, mask)
+        concat = self._combine_heads(context)
+        output = concat @ self.W_o
+        cache = (query, key, value, concat, attn_cache)
+        return output, cache
 
-        # 2. Dividir em múltiplas cabeças
-        q = self._split_heads(q)  # (B, nh, T, dk)
-        k = self._split_heads(k)
-        v = self._split_heads(v)
+    def backward(self, d_output, cache):
+        query, key, value, concat, attn_cache = cache
+        
+        # --- CORREÇÃO AQUI ---
+        # Achata os tensores 3D para 2D para a multiplicação de matrizes
+        B, T, D = d_output.shape
+        flat_concat = concat.reshape(-1, D)
+        flat_d_output = d_output.reshape(-1, D)
+        grad_Wo = flat_concat.T @ flat_d_output
+        d_concat = (flat_d_output @ self.W_o.T).reshape(B, T, D)
+        # --- FIM DA CORREÇÃO ---
 
-        # 3. Scaled dot-product attention
-        context = scaled_dot_product_attention(q, k, v, mask)  # (B, nh, T, dk)
+        d_context = self._split_heads(d_concat)
+        dq_h, dk_h, dv_h = scaled_dot_product_attention_backward(d_context, attn_cache)
+        dq, dk, dv = self._combine_heads(dq_h), self._combine_heads(dk_h), self._combine_heads(dv_h)
+        
+        # Achata as entradas e gradientes para calcular os gradientes dos pesos
+        flat_query = query.reshape(-1, D)
+        flat_key = key.reshape(-1, D)
+        flat_value = value.reshape(-1, D)
+        flat_dq = dq.reshape(-1, D)
+        flat_dk = dk.reshape(-1, D)
+        flat_dv = dv.reshape(-1, D)
 
-        # 4. Concatenar cabeças e aplicar W_o
-        concat = self._combine_heads(context)  # (B, T, D)
-        output = concat @ self.W_o             # (B, T, D)
+        grad_Wq = flat_query.T @ flat_dq
+        grad_Wk = flat_key.T @ flat_dk
+        grad_Wv = flat_value.T @ flat_dv
+        
+        d_query = dq @ self.W_q.T
+        d_key = dk @ self.W_k.T
+        d_value = dv @ self.W_v.T
+        
+        grads = self.get_parameters()
+        grads.update({'W_q': grad_Wq, 'W_k': grad_Wk, 'W_v': grad_Wv, 'W_o': grad_Wo})
+        
+        return (d_query + d_key + d_value), grads
+    
+    def backward_cross(self, d_output, cache):
+        query, key, value, concat, attn_cache = cache
+        
+        # --- CORREÇÃO AQUI (mesma lógica do backward) ---
+        B, T, D = d_output.shape
+        flat_concat = concat.reshape(-1, D)
+        flat_d_output = d_output.reshape(-1, D)
+        grad_Wo = flat_concat.T @ flat_d_output
+        d_concat = (flat_d_output @ self.W_o.T).reshape(B, T, D)
+        # --- FIM DA CORREÇÃO ---
 
-        return output
+        d_context = self._split_heads(d_concat)
+        dq_h, dk_h, dv_h = scaled_dot_product_attention_backward(d_context, attn_cache)
+        dq, dk, dv = self._combine_heads(dq_h), self._combine_heads(dk_h), self._combine_heads(dv_h)
+        
+        # Achata as entradas e gradientes para calcular os gradientes dos pesos
+        flat_query = query.reshape(-1, D)
+        flat_key = key.reshape(-1, D)
+        flat_value = value.reshape(-1, D)
+        flat_dq = dq.reshape(-1, D)
+        flat_dk = dk.reshape(-1, D)
+        flat_dv = dv.reshape(-1, D)
 
+        grad_Wq = flat_query.T @ flat_dq
+        grad_Wk = flat_key.T @ flat_dk
+        grad_Wv = flat_value.T @ flat_dv
 
-# Exemplo de uso (opcional)
-if __name__ == "__main__":
-    batch_size = 2
-    seq_length = 5
-    embed_dim  = 16
-    num_heads  = 4
-
-    # Simula dados aleatórios
-    x = xp.random.randn(batch_size, seq_length, embed_dim).astype(xp.float32)
-
-    mha = MultiHeadAttention(embed_dim, num_heads)
-    out = mha.forward(x, x, x, mask=None)
-    print("Output shape:", out.shape)  # deve ser (batch_size, seq_length, embed_dim)
+        d_query = dq @ self.W_q.T
+        d_memory = (dk @ self.W_k.T) + (dv @ self.W_v.T)
+        
+        grads = self.get_parameters()
+        grads.update({'W_q': grad_Wq, 'W_k': grad_Wk, 'W_v': grad_Wv, 'W_o': grad_Wo})
+        
+        return d_query, d_memory, grads

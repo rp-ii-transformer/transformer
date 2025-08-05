@@ -7,7 +7,7 @@ from scripts.train import run_train
 if __name__ == "__main__":
     run_train(
         max_examples   = 1024,     # 1 k amostras
-        epochs         =   3,      # 3 épocas
+        epochs         =   100,      # 10 épocas
         d_model        = 128,      # dimensão 128
         n_layers       =   2,      # 2 camadas
         n_heads        =   4,      # 4 cabeças

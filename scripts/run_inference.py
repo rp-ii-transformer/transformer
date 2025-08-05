@@ -1,40 +1,41 @@
 import os
 import sys
 import numpy as onp
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from transformers import AutoTokenizer
-from transformer.pipeline.common            import xp
+from transformer.pipeline.common import xp
 from transformer.pipeline.transformer_manual import Transformer
 
-# ─────── CONFIGURAÇÃO ───────────────────────────────────────────────
-DEBUG = False
+# --- 1. CONFIGURAÇÃO ---
+DEBUG = True
 
 if DEBUG:
-    D_MODEL    = 128
-    N_LAYERS   = 2
-    N_HEADS    = 4
-    D_FF       = 512
-    MAX_LEN    = 64
-    CHECKPOINT = "checkpoints_debug/epoch3.npz" 
+    # Parâmetros para o modelo treinado com 'train_debug.py'
+    D_MODEL = 128
+    N_LAYERS = 2
+    N_HEADS = 4
+    D_FF = 512
+    MAX_LEN = 64
+    # Carrega o último checkpoint do treino de debug
+    CHECKPOINT = "checkpoints_debug/epoch10.npz"
 else:
-    D_MODEL    = 512
-    N_LAYERS   = 6
-    N_HEADS    = 8
-    D_FF       = 2048
-    MAX_LEN    = 64
-    CHECKPOINT = "checkpoints/epoch2.npz"
-# ───────────────────────────────────────────────────────────────────
+    # Parâmetros para o modelo treinado com 'train.py'
+    D_MODEL = 512
+    N_LAYERS = 6
+    N_HEADS = 8
+    D_FF = 2048
+    MAX_LEN = 64
+    CHECKPOINT = "checkpoints/epoch10.npz"
 
-# 1) Carrega tokenizer
+# --- 2. CARREGAR TOKENIZER E MODELO ---
+
 tokenizer = AutoTokenizer.from_pretrained(
     "Helsinki-NLP/opus-mt-tc-big-en-pt",
     trust_remote_code=True
 )
 vocab_size = tokenizer.vocab_size
 
-# 2) Instancia o Transformer
 model = Transformer(
     vocab_size=vocab_size,
     d_model=D_MODEL,
@@ -44,60 +45,75 @@ model = Transformer(
     max_len=MAX_LEN
 )
 
-# 3) Carrega checkpoint NumPy
+# --- 3. CARREGAR CHECKPOINT (LÓGICA CORRIGIDA E ROBUSTA) ---
+
+print(f"-> Carregando checkpoint: {CHECKPOINT}")
 ckpt = onp.load(CHECKPOINT)
-model.Wemb_src = xp.asarray(ckpt["Wemb_src"])
-model.Wemb_tgt = xp.asarray(ckpt["Wemb_tgt"])
-model.Wout     = xp.asarray(ckpt["Wout"])
-# Se tiver treinado mais parametros na versão FULL:
-# ex: model.enc[0].self_attn.W_q = xp.asarray(ckpt["enc_0_Wq"]) etc.
+top_level_params = ["Wemb_src", "Wemb_tgt", "Wout"]
 
-print(f"→ Usando {'DEBUG' if DEBUG else 'FULL'} checkpoint: {CHECKPOINT}")
-print("GPU disponível?", hasattr(xp, "get_default_memory_pool"))
+for name in model.get_parameters_dict().keys():
+    if name in ckpt:
+        # Caso 1: Parâmetros de nível superior (ex: Wemb_src)
+        if name in top_level_params:
+            setattr(model, name, xp.asarray(ckpt[name]))
+        # Caso 2: Parâmetros aninhados (ex: enc_0_sa_W_q)
+        else:
+            parts = name.split('_')
+            container_path_parts = parts[:3]
+            param_name = '_'.join(parts[3:])
 
-# 4) Função de geração *greedy*
+            target_obj = model
+            for part in container_path_parts:
+                if part.isdigit():
+                    target_obj = target_obj[int(part)]
+                else:
+                    attr_map = {'sa': 'self_attn', 'ca': 'cross_attn', 'ffn': 'ffn'}
+                    if 'norm' in part:
+                        target_obj = getattr(target_obj, part)
+                    else:
+                        target_obj = getattr(target_obj, attr_map.get(part, part))
+            setattr(target_obj, param_name, xp.asarray(ckpt[name]))
+    else:
+        print(f"!! Atenção: Parâmetro '{name}' não encontrado no checkpoint.")
+
+print("-> Modelo carregado com sucesso.")
+print(f"→ Usando {'DEBUG' if DEBUG else 'FULL'} checkpoint: {CHECKPOINT}\n")
+
+# --- 4. FUNÇÃO DE GERAÇÃO GREEDY ---
+
 def greedy_generate(text: str) -> str:
-    # tokenização
     enc = tokenizer(
-        [text],
-        return_tensors="np",
-        padding="max_length",
-        truncation=True,
-        max_length=MAX_LEN
+        [text], return_tensors="np", padding="max_length",
+        truncation=True, max_length=MAX_LEN
     )
-    src_ids = xp.asarray(enc["input_ids"])                 # (1, S)
-    pad_id   = tokenizer.pad_token_id
+    src_ids = xp.asarray(enc["input_ids"])
+    pad_id = tokenizer.pad_token_id
 
-    # --- Construção da máscara para cross-attention ---
-    # queremos uma máscara que seja (B, 1, 1, S) para broadcast até (B, nh, T, S)
-    is_pad   = (src_ids == pad_id)                         # (1, S)
-    mask_vals = xp.where(is_pad, -1e9, 0.0).astype(xp.float32)  # (1, S)
-    src_mask = mask_vals[:, None, None, :]                  # (1, 1, 1, S)
+    src_mask = (src_ids == pad_id)[:, None, None, :]
+    
+    sos_id = tokenizer.pad_token_id # O tokenizer Helsinki usa pad_id para SOS
+    eos_id = tokenizer.eos_token_id
+    
+    tgt = xp.array([[sos_id]], dtype=xp.int32)
 
-    # --- Prepara SOS/EOS ---
-    sos = (tokenizer.bos_token_id or
-           tokenizer.cls_token_id or pad_id)
-    eos = (tokenizer.eos_token_id or
-           tokenizer.sep_token_id or sos)
-
-    # começa a sequência alvo com só [SOS]
-    tgt = xp.array([[sos]], dtype=xp.int32)                 # (1, 1)
-
-    # gera token a token
     for _ in range(MAX_LEN - 1):
-        logits = model.forward(src_ids, tgt, src_mask, None)  # (1, T, V)
-        next_id = int(xp.argmax(logits[0, -1]))               # escolhe próximo
-        tgt = xp.concatenate(
-            [tgt, xp.array([[next_id]], dtype=xp.int32)], axis=1
-        )
-        if next_id == eos:
+        tgt_len = tgt.shape[1]
+        tgt_causal_mask = xp.triu(xp.ones((1, 1, tgt_len, tgt_len), dtype=xp.bool_), k=1)
+        
+        # Chama o forward com training=False para desativar o dropout
+        logits = model.forward(src_ids, tgt, src_mask, tgt_causal_mask, training=False)
+        
+        next_id = int(xp.argmax(logits[0, -1]))
+        tgt = xp.concatenate([tgt, xp.array([[next_id]], dtype=xp.int32)], axis=1)
+        
+        if next_id == eos_id:
             break
 
-    # decodifica removendo tokens especiais
-    out_ids = [int(i) for i in tgt[0, 1:].tolist()]
+    out_ids = [int(i) for i in tgt[0, 1:].tolist()] # Pula o SOS inicial
     return tokenizer.decode(out_ids, skip_special_tokens=True)
 
-# 5) Exemplos
+# --- 5. EXEMPLOS ---
+
 for prompt in [
     "Hello, how are you?",
     "This is a test of the Transformer implementation.",

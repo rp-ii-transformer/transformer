@@ -6,65 +6,84 @@ def _smooth_targets(targets: xp.ndarray,
                     epsilon: float,
                     pad_idx: int) -> xp.ndarray:
     """
-    Constrói a distribuição alvo suavizada:
-      (1 - ε) na posição correta, ε/(V-1) nas demais.
-    Zera todas as posições onde targets == pad_idx.
-    Retorna shape (B, T, V).
+    Versão vetorizada e eficiente em memória que constrói a distribuição alvo suavizada.
+    Esta função é projetada para funcionar com vocabulários grandes sem estourar a VRAM.
     """
     B, T = targets.shape
-    smooth = xp.full((B, T, vocab_size),
-                     fill_value=epsilon / (vocab_size - 1),
-                     dtype=xp.float32)
-    for b in range(B):
-        for t in range(T):
-            idx = int(targets[b, t])
-            if idx == pad_idx:
-                smooth[b, t, :] = 0.0
-            else:
-                smooth[b, t, idx] = 1.0 - epsilon
-    return smooth
+    
+    # --- ECONOMIZAR MEMÓRIA ACONTECE AQUI AGR ---
+    # 1. Em vez de criar uma matriz identidade de (vocab_size, vocab_size) que consumiria >12GB,
+    #    nós criamos a matriz one-hot diretamente no formato final (B, T, vocab_size).
+    #    Isso consome muito menos memória (apenas alguns MB).
+    one_hot = xp.zeros((B, T, vocab_size), dtype=xp.float32)
 
+    # 2. Cria arrays de índices para as duas primeiras dimensões (batch e tempo)
+    b_idx = xp.arange(B)[:, None]
+    t_idx = xp.arange(T)[None, :]
+    
+    # 3. Usa indexação avançada para colocar '1's nos lugares corretos.
+    #    Isso faz a mesma coisa que put_along_axis, mas com funções mais básicas.
+    one_hot[b_idx, t_idx, targets] = 1.0
+    # --- FIM DA CORREÇÃO ---
+
+    #suavizavao
+    smooth_dist = one_hot * (1.0 - epsilon) + (1.0 - one_hot) * epsilon / (vocab_size - 1)
+    pad_mask = (targets == pad_idx)[:, :, None]
+    smooth_dist = xp.where(pad_mask, 0.0, smooth_dist)
+    
+    return smooth_dist
 
 def label_smoothing_loss(logits: xp.ndarray,
                          targets: xp.ndarray,
                          pad_idx: int,
                          epsilon: float = 0.1) -> float:
     """
-    logits:  (B, T, V)
-    targets: (B, T) índices [0..V-1]
-    pad_idx: índice de padding
+    [cite_start]Calcula a perda com label smoothing. [cite: 224]
+
+    Args:
+        logits (xp.ndarray): Saída bruta do modelo (B, T, V).
+        targets (xp.ndarray): Índices alvo corretos (B, T).
+        pad_idx (int): O índice do token de padding a ser ignorado.
+        [cite_start]epsilon (float): O fator de suavização. [cite: 224]
+
+    Returns:
+        float: O valor da perda, normalizado pelo número de tokens.
     """
     B, T, V = logits.shape
-    # 1) log-probs estáveis
-    log_probs = log_softmax(logits)           # (B, T, V)
-    # 2) distribuição alvo suavizada
+    log_probs = log_softmax(logits)
     true_dist = _smooth_targets(targets, V, epsilon, pad_idx)
-    # 3) perda de cross-entropy
-    loss_all = -xp.sum(true_dist * log_probs, axis=-1)      # (B, T)
-    mask     = (targets != pad_idx).astype(xp.float32)      # (B, T)
-    total_loss   = xp.sum(loss_all * mask)
+    
+    # Calcula a cross-entropy negativa
+    loss_all = -xp.sum(true_dist * log_probs, axis=-1)
+    
+    # Cria uma máscara para ignorar o padding no cálculo da perda
+    mask = (targets != pad_idx).astype(xp.float32)
+    
+    # Aplica a máscara e normaliza pelo número total de tokens não-padding
+    total_loss = xp.sum(loss_all * mask)
     total_tokens = xp.sum(mask)
-    return float(total_loss / total_tokens)
-
+    
+    # Adiciona uma pequena constante para evitar divisão por zero
+    return float(total_loss / (total_tokens + 1e-9))
 
 def label_smoothing_grad(logits: xp.ndarray,
                          targets: xp.ndarray,
                          pad_idx: int,
                          epsilon: float = 0.1) -> xp.ndarray:
     """
-    Retorna gradiente dL/dlogits, shape (B, T, V), para usar no backward.
-    Usa a mesma distribuição suavizada de targets.
+    Calcula o gradiente da perda em relação aos logits (dL/dlogits).
     """
     B, T, V = logits.shape
-    # 1) p_pred = softmax(logits)
-    p_pred = softmax(logits)                           # (B, T, V)
-    # 2) p_true suavizada
-    p_true = _smooth_targets(targets, V, epsilon, pad_idx)
-    # 3) máscara para pads
-    mask = (targets != pad_idx).astype(xp.float32)      # (B, T)
-    # 4) diferença e normalização pela soma de tokens válidos
-    diff = p_pred - p_true                              # (B, T, V)
-    # aplica máscara nos tempos
+    p_pred = softmax(logits) # Probabilidades previstas
+    p_true = _smooth_targets(targets, V, epsilon, pad_idx) # Probabilidades alvo suavizadas
+    
+    mask = (targets != pad_idx).astype(xp.float32)
+    
+    # O gradiente é a diferença entre a distribuição prevista e a distribuição alvo
+    diff = p_pred - p_true
+    
+    # Zera o gradiente nas posições de padding e normaliza
     diff = diff * mask[:, :, None]
     total_tokens = xp.sum(mask)
-    return diff / total_tokens                          # (B, T, V)
+    
+    return diff / (total_tokens + 1e-9)
