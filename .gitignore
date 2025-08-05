@@ -7,3 +7,5 @@ checkpoints_debug/
 checkpoints
 checkpoins_debug
 .python-version
+checkpoints_small_vocab
+checkpoints_small_vocab/
