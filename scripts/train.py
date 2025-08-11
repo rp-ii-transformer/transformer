@@ -93,14 +93,14 @@ def run_train(
 if __name__ == "__main__":
     # Parâmetros padrão (full train)
     run_train(
-        max_examples   = 5000,
-        epochs         = 10,
+        max_examples   = 20000,
+        epochs         = 80,
         d_model        = 512,
         n_layers       = 6,
         n_heads        = 8,
         d_ff           = 2048,
         max_len        = 64,
-        batch_size     = 8,
-        warmup         = 4000,
+        batch_size     = 24,
+        warmup         = 1000,
         checkpoint_dir = "checkpoints",
     )

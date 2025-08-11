@@ -8,28 +8,26 @@ from transformer.pipeline.common import xp
 from transformer.pipeline.transformer_manual import Transformer
 
 # --- 1. CONFIGURAÇÃO ---
-DEBUG = True
+DEBUG = False
 
 if DEBUG:
-    # Parâmetros para o modelo treinado com 'train_debug.py'
+    # Parâmetros para modelo treinado com 'train_debug.py'
     D_MODEL = 128
     N_LAYERS = 2
     N_HEADS = 4
     D_FF = 512
     MAX_LEN = 64
-    # Carrega o último checkpoint do treino de debug
     CHECKPOINT = "checkpoints_debug/epoch10.npz"
 else:
-    # Parâmetros para o modelo treinado com 'train.py'
+    # Parâmetros para modelo treinado com 'train.py'
     D_MODEL = 512
     N_LAYERS = 6
     N_HEADS = 8
     D_FF = 2048
     MAX_LEN = 64
-    CHECKPOINT = "checkpoints/epoch10.npz"
+    CHECKPOINT = "checkpoints/epoch58.npz"
 
 # --- 2. CARREGAR TOKENIZER E MODELO ---
-
 tokenizer = AutoTokenizer.from_pretrained(
     "Helsinki-NLP/opus-mt-tc-big-en-pt",
     trust_remote_code=True
@@ -45,23 +43,19 @@ model = Transformer(
     max_len=MAX_LEN
 )
 
-# --- 3. CARREGAR CHECKPOINT (LÓGICA CORRIGIDA E ROBUSTA) ---
-
+# --- 3. CARREGAR CHECKPOINT ---
 print(f"-> Carregando checkpoint: {CHECKPOINT}")
 ckpt = onp.load(CHECKPOINT)
 top_level_params = ["Wemb_src", "Wemb_tgt", "Wout"]
 
 for name in model.get_parameters_dict().keys():
     if name in ckpt:
-        # Caso 1: Parâmetros de nível superior (ex: Wemb_src)
         if name in top_level_params:
             setattr(model, name, xp.asarray(ckpt[name]))
-        # Caso 2: Parâmetros aninhados (ex: enc_0_sa_W_q)
         else:
             parts = name.split('_')
             container_path_parts = parts[:3]
             param_name = '_'.join(parts[3:])
-
             target_obj = model
             for part in container_path_parts:
                 if part.isdigit():
@@ -80,8 +74,8 @@ print("-> Modelo carregado com sucesso.")
 print(f"→ Usando {'DEBUG' if DEBUG else 'FULL'} checkpoint: {CHECKPOINT}\n")
 
 # --- 4. FUNÇÃO DE GERAÇÃO GREEDY ---
-
 def greedy_generate(text: str) -> str:
+    # Tokeniza entrada em inglês
     enc = tokenizer(
         [text], return_tensors="np", padding="max_length",
         truncation=True, max_length=MAX_LEN
@@ -89,35 +83,56 @@ def greedy_generate(text: str) -> str:
     src_ids = xp.asarray(enc["input_ids"])
     pad_id = tokenizer.pad_token_id
 
+    # Máscara de padding da fonte (mesmo formato do treino)
     src_mask = (src_ids == pad_id)[:, None, None, :]
-    
-    sos_id = tokenizer.pad_token_id # O tokenizer Helsinki usa pad_id para SOS
+
+    # Define tokens especiais
+    sos_id = tokenizer.bos_token_id
+    if sos_id is None:
+        sos_id = tokenizer.convert_tokens_to_ids("<s>") if "<s>" in tokenizer.get_vocab() else pad_id
     eos_id = tokenizer.eos_token_id
-    
+
+    # Inicia target com <sos>
     tgt = xp.array([[sos_id]], dtype=xp.int32)
 
     for _ in range(MAX_LEN - 1):
         tgt_len = tgt.shape[1]
-        tgt_causal_mask = xp.triu(xp.ones((1, 1, tgt_len, tgt_len), dtype=xp.bool_), k=1)
-        
-        # Chama o forward com training=False para desativar o dropout
-        logits = model.forward(src_ids, tgt, src_mask, tgt_causal_mask, training=False)
-        
+
+        # Máscara de padding do target + máscara causal
+        tgt_pad_mask = (tgt == pad_id)[:, None, None, :]
+        causal_mask = xp.triu(xp.ones((1, 1, tgt_len, tgt_len), dtype=xp.bool_), k=1)
+        tgt_mask = tgt_pad_mask | causal_mask
+
+        # Forward sem dropout
+        logits = model.forward(src_ids, tgt, src_mask, tgt_mask, training=False)
+
         next_id = int(xp.argmax(logits[0, -1]))
         tgt = xp.concatenate([tgt, xp.array([[next_id]], dtype=xp.int32)], axis=1)
-        
-        if next_id == eos_id:
+
+        if eos_id is not None and next_id == eos_id:
             break
 
-    out_ids = [int(i) for i in tgt[0, 1:].tolist()] # Pula o SOS inicial
+    # Remove o SOS inicial e decodifica
+    out_ids = [int(i) for i in tgt[0, 1:].tolist()]
     return tokenizer.decode(out_ids, skip_special_tokens=True)
 
 # --- 5. EXEMPLOS ---
-
 for prompt in [
     "Hello, how are you?",
     "This is a test of the Transformer implementation.",
-    "Machine translation is fun!"
+    "Machine translation is fun!",
+    "Do you know my name",
+    "Name",
+    "My car",
+    "Everybody says my name is Nabucodonosor",
+    "Qual é o seu nome?",
+    "Qual é o seu projeto?",
+    "O lobo diz AUUUUUUUUUUUUUUUUUUUUUU AU AU AUUUUUUUUUUUUUUUUUU",
+    "O lobo",
+    "O papagaio",
+    "O imortal",
+    "O gato",
+    "O cachorro"
 ]:
     print(f"> {prompt}")
     print(f"< {greedy_generate(prompt)}\n")

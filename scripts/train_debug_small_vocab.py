@@ -81,8 +81,8 @@ def run_custom_train():
     n_heads = 2
     d_ff = 128
     max_len = 20 # Podemos usar um max_len menor
-    batch_size = 2
-    epochs = 50 # Treine por mais épocas para decorar o dataset
+    batch_size = 8
+    epochs = 100 # Treine por mais épocas para decorar o dataset
     warmup = 10
     checkpoint_dir = "checkpoints_small_vocab"
     os.makedirs(checkpoint_dir, exist_ok=True)
