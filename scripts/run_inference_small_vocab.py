@@ -1,5 +1,8 @@
 import os, sys
 import numpy as np
+
+from transformer.pipeline.token_embedding import visualizar_embedding
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from transformer.pipeline.transformer_manual import Transformer
@@ -69,6 +72,11 @@ for name in model.get_parameters_dict().keys():
         print(f"Atenção: Parâmetro '{name}' não encontrado no checkpoint.")
 
 print("Modelo carregado com sucesso.")
+# --- 3.5. VISUALIZAÇÃO DO EMBEDDING PARA O RELATÓRIO ---
+print("\n--- VISUALIZAÇÃO DO EMBEDDING ---")
+texto_exemplo = "hello how are you"
+visualizar_embedding(model, vocab_stoi, vocab_itos, texto_exemplo, tipo='src', max_len=MAX_LEN)
+
 
 # --- 3. FUNÇÃO DE GERAÇÃO (INFERÊNCIA) ---
 

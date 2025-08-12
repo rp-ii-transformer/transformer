@@ -3,6 +3,7 @@ import math
 # ── Implementação PyTorch ───────────────────────────────────────────────
 import torch
 import torch.nn as nn
+import numpy as np
 
 class TokenEmbedding(nn.Module):
     """
@@ -50,3 +51,55 @@ def embed_tokens(token_ids: xp.ndarray, W: xp.ndarray) -> xp.ndarray:
         for j in range(T):
             out[i, j] = W[token_ids[i, j]]
     return out * math.sqrt(D)
+
+
+def visualizar_embedding(model, vocab_stoi, vocab_itos, frase: str, tipo='src', max_len=20):
+    """
+    Visualiza entrada, pesos e saída da camada de embedding para uma frase dada.
+    Usa o vocabulário carregado manualmente (vocab_stoi e vocab_itos).
+    """
+    import numpy as np
+
+    pad_idx = vocab_stoi['<pad>']
+    tokens = frase.lower().split()
+    token_ids = [vocab_stoi['<sos>']] + [vocab_stoi.get(tok, vocab_stoi['<unk>']) for tok in tokens] + [
+        vocab_stoi['<eos>']]
+    token_ids += [pad_idx] * (max_len - len(token_ids))
+    token_ids = token_ids[:max_len]
+
+    tokens_completos = [vocab_itos[i] for i in token_ids]
+
+    # Seleciona embedding
+    W = model.Wemb_src if tipo == 'src' else model.Wemb_tgt
+
+    # Calcula embedding
+    embedded = embed_tokens(xp.array([token_ids]), W)
+
+    # Converte para numpy (se for cupy)
+    if hasattr(W, "get"):
+        W = W.get()
+        embedded = embedded.get()
+
+    # Exibe tudo
+    print(f"> Frase: \"{frase}\"\n")
+    print(f"> Tokens:    {tokens_completos}")
+    print(f"> Token IDs: {token_ids}\n")
+
+    print(f"> Primeiros vetores da matriz de embedding ({'Wemb_src' if tipo == 'src' else 'Wemb_tgt'}):")
+    print(np.round(W[:5], 3))
+
+    print(f"\n>️  Saída da camada de embedding:")
+    print(np.round(embedded[0], 3))
+
+    return embedded[0]
+
+
+vocab_size = 5
+d_model = 4
+token_ids = np.array([[0, 2, 4], [3, 1, 0]])
+
+W = create_embedding(vocab_size, d_model)
+print(np.round(W, 3))
+
+embedded = embed_tokens(token_ids, W)
+print(np.round(embedded, 3))
