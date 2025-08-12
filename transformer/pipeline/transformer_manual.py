@@ -207,3 +207,30 @@ class Transformer:
         
         # Retorna a lista de gradientes na mesma ordem dos parâmetros
         return [grads[name] for name in params_keys]
+    
+        
+    def encode(self, src_ids, src_mask, training=False):
+        """Executa apenas a parte do ENCODER."""
+        B, Ls = src_ids.shape
+        Es = embed_tokens(src_ids, self.Wemb_src) * math.sqrt(self.Wemb_src.shape[1])
+        Es = Es + self.pe[:, :Ls, :]
+        
+        xs = Es
+        for layer in self.enc:
+            xs, _ = layer.forward(xs, src_mask, training=training)
+        return xs # Retorna a memória
+
+    def decode(self, tgt_ids, memory, src_mask, tgt_mask, training=False):
+        """Executa apenas a parte do DECODER."""
+        B, Lt = tgt_ids.shape
+        Et = embed_tokens(tgt_ids, self.Wemb_tgt) * math.sqrt(self.Wemb_tgt.shape[1])
+        Et = Et + self.pe[:, :Lt, :]
+
+        xt = Et
+        for layer in self.dec:
+            xt, _ = layer.forward(xt, memory, tgt_mask, src_mask, training=training)
+        return xt
+
+    def project(self, decoder_output):
+        """Projeta a saída do decoder para o vocabulário (logits)."""
+        return decoder_output @ self.Wout

@@ -84,7 +84,7 @@ class MultiHeadAttention:
         flat_d_output = d_output.reshape(-1, D)
         grad_Wo = flat_concat.T @ flat_d_output
         d_concat = (flat_d_output @ self.W_o.T).reshape(B, T, D)
-        # --- FIM DA CORREÇÃO ---
+        # --- CORREÇÃO ---
 
         d_context = self._split_heads(d_concat)
         dq_h, dk_h, dv_h = scaled_dot_product_attention_backward(d_context, attn_cache)

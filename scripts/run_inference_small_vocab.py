@@ -108,10 +108,12 @@ test_sentences = [
     "how are you",
     "this is a test",
     "the book is on the table",
+    "the book table",
     "i love",
     "machine",
     "translation",
     "i love machine translation",
+    "hello!!",
 ]
 
 print("\n--- INICIANDO TRADUÇÃO ---")

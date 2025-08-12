@@ -25,7 +25,7 @@ else:
     N_HEADS = 8
     D_FF = 2048
     MAX_LEN = 64
-    CHECKPOINT = "checkpoints/epoch58.npz"
+    CHECKPOINT = "checkpoints/modelo_epoch_58.npz"
 
 # --- 2. CARREGAR TOKENIZER E MODELO ---
 tokenizer = AutoTokenizer.from_pretrained(
@@ -118,21 +118,46 @@ def greedy_generate(text: str) -> str:
 
 # --- 5. EXEMPLOS ---
 for prompt in [
-    "Hello, how are you?",
-    "This is a test of the Transformer implementation.",
-    "Machine translation is fun!",
-    "Do you know my name",
-    "Name",
-    "My car",
-    "Everybody says my name is Nabucodonosor",
-    "Qual é o seu nome?",
-    "Qual é o seu projeto?",
-    "O lobo diz AUUUUUUUUUUUUUUUUUUUUUU AU AU AUUUUUUUUUUUUUUUUUU",
-    "O lobo",
-    "O papagaio",
-    "O imortal",
-    "O gato",
-    "O cachorro"
-]:
+        "Hello, how are you?",
+        "This is a test of the Transformer implementation.",
+        "Machine translation is fun!",
+        "Do you know my name",
+        "My car",
+        "Everybody says my name is Nabucodonosor",
+        "The cat sat on the book.",
+        "What is your project about?",
+        "The wolf",
+        "The parrot",
+        "The immortal",
+        "The cat",
+        "The dog",
+        "To be or not to be, that is the question.",
+        "I have been learning to play the guitar for three years.",
+        
+        
+        "The paper 'Attention Is All You Need' is foundational for modern NLP.",
+        "I would like to order a pizza with extra cheese, please.",
+        "Can you please tell me where the nearest train station is?",
+        "Never look a gift horse in the mouth.",
+        "The book is on the table."
+        
+        
+        
+        "Good morning, I would like a cup of coffee.",
+        "Where is the nearest train station?",
+        "I don't understand what you are saying.",
+        "How much does this cost?",
+
+        # Sentenças com diferentes tempos verbais
+        "I will travel to Brazil next year.",
+        "She had already finished her homework when I called.",
+        "He is learning how to code in Python.",
+
+        # Sentenças mais complexas
+        "Although it was raining, we decided to go for a walk in the park.",
+        "The attention mechanism is one of the key components of this model.",
+        
+        "A bright light appeared in the sky.",
+    ]:
     print(f"> {prompt}")
     print(f"< {greedy_generate(prompt)}\n")

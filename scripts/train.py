@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # Parâmetros padrão (full train)
     run_train(
         max_examples   = 20000,
-        epochs         = 80,
+        epochs         = 300,
         d_model        = 512,
         n_layers       = 6,
         n_heads        = 8,
